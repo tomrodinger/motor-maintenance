@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relay — inside-the-box variants</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  body { padding-bottom: 80px; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 26px 22px; }
+  h1 { font-size: 26px; letter-spacing: -.02em; margin: 0 0 8px; font-weight: 640; }
+  .sub { color: var(--text-2); font-size: 14.5px; margin: 0 0 6px; max-width: 760px; line-height: 1.6; }
+  .opt { border-top: 1px solid var(--line-soft); padding: 26px 0; }
+  .opt-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .opt-n { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .opt-t { font-size: 17px; font-weight: 620; letter-spacing: -.01em; }
+  .opt-d { color: var(--text-2); font-size: 13.5px; line-height: 1.55; max-width: 680px; margin: 0 0 16px; }
+  .demo { display: grid; grid-template-columns: 350px 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 860px) { .demo { grid-template-columns: 1fr; } }
+  .rowdemo { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--bg-2); }
+  .rowdemo table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
+  .rowdemo td { padding: 9px 12px; border-bottom: 1px solid var(--line-soft); font-family: var(--mono); position: relative; z-index: 1; }
+  .rowdemo tr:last-child td { border-bottom: 0; }
+  .rowdemo tr { position: relative; isolation: isolate; }
+  .fire { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .verdict { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; margin-top: 30px; }
+  .verdict b { color: var(--accent); }
+  code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 4px; color: var(--text-2); }
+
+  /* The button acknowledgement now lives in styles.css so the app and this
+     page cannot drift apart. It stays accent-filled even while hovered. */
+
+  /* Every effect below is drawn on an ::before that is inset:0 with the host's
+     own border-radius, so it can never paint outside the element. */
+  .fx { position: relative; isolation: isolate; }
+  .fx::before {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    pointer-events: none; z-index: 0;
+  }
+  .card.fx::before { border-radius: var(--radius); }
+
+  /* R1 — ripple outward from the pressed control, clipped to the element */
+  .fx-r1::before {
+    background: radial-gradient(circle at var(--fx-x) var(--fx-y),
+      rgba(53,224,161,.42), rgba(53,224,161,.16) 38%, rgba(53,224,161,0) 68%);
+    clip-path: circle(0% at var(--fx-x) var(--fx-y));
+    animation: r1 .62s cubic-bezier(.25,.7,.3,1) forwards;
+  }
+  @keyframes r1 {
+    from { clip-path: circle(0% at var(--fx-x) var(--fx-y)); opacity: 1; }
+    to   { clip-path: circle(95% at var(--fx-x) var(--fx-y)); opacity: 0; }
+  }
+
+  /* R2 — bloom from the centre outward */
+  .fx-r2::before {
+    background: radial-gradient(circle at 50% 50%,
+      rgba(53,224,161,.38), rgba(53,224,161,.14) 40%, rgba(53,224,161,0) 70%);
+    clip-path: circle(0% at 50% 50%);
+    animation: r2 .6s cubic-bezier(.25,.7,.3,1) forwards;
+  }
+  @keyframes r2 {
+    from { clip-path: circle(0% at 50% 50%); opacity: 1; }
+    to   { clip-path: circle(85% at 50% 50%); opacity: 0; }
+  }
+
+  /* R3 — collapse inward: a bright rim spreads in from the edge and dissolves.
+     An inset box-shadow whose blur/spread grows inward reads more clearly here
+     than any clip-path trick. */
+  .fx-r3::before {
+    box-shadow: inset 0 0 0 0 rgba(53,224,161,.55);
+    animation: r3b .6s ease-out forwards;
+  }
+  @keyframes r3b {
+    0%   { box-shadow: inset 0 0 1px 0 rgba(53,224,161,.7); opacity: 1; }
+    100% { box-shadow: inset 0 0 26px 22px rgba(53,224,161,.0); opacity: 0; }
+  }
+
+  /* R4 — inner rim pulse, no travel at all */
+  .fx-r4::before {
+    box-shadow: inset 0 0 0 1.5px rgba(53,224,161,.9), inset 0 0 16px 0 rgba(53,224,161,.30);
+    animation: r4 .62s ease-out forwards;
+  }
+  @keyframes r4 { from { opacity: 1 } to { opacity: 0 } }
+
+  /* R5 — scanline: a thin band crosses the element once */
+  .fx-r5::before {
+    background: linear-gradient(180deg,
+      rgba(53,224,161,0) 0%, rgba(53,224,161,.05) 34%, rgba(53,224,161,.45) 50%,
+      rgba(53,224,161,.05) 66%, rgba(53,224,161,0) 100%);
+    background-size: 100% 46%;
+    background-repeat: no-repeat;
+    animation: r5 .7s cubic-bezier(.4,0,.5,1) forwards;
+  }
+  @keyframes r5 {
+    from { background-position: 0 -46%; opacity: 1 }
+    80%  { opacity: 1 }
+    to   { background-position: 0 120%; opacity: 0 }
+  }
+
+  /* R7 — R3 played backwards: the glow starts deep inside and retreats to the
+     rim, so the green travels outward. */
+  .fx-r7::before {
+    animation: r7 .6s ease-out forwards;
+  }
+  @keyframes r7 {
+    0%   { box-shadow: inset 0 0 26px 22px rgba(53,224,161,.50); opacity: 1; }
+    100% { box-shadow: inset 0 0 1px 0 rgba(53,224,161,.70); opacity: 0; }
+  }
+
+  /* R8 — same outward direction, but the rim sharpens and brightens as it goes,
+     so the bright part is what travels rather than a haze thinning out. */
+  .fx-r8::before {
+    animation: r8 .62s cubic-bezier(.3,.6,.3,1) forwards;
+  }
+  @keyframes r8 {
+    0%   { box-shadow: inset 0 0 34px 26px rgba(53,224,161,.26); opacity: 1; }
+    55%  { box-shadow: inset 0 0 14px 6px rgba(53,224,161,.50); opacity: 1; }
+    100% { box-shadow: inset 0 0 3px 0 rgba(53,224,161,.95); opacity: 0; }
+  }
+
+  /* R6 — directional wipe travelling away from the pressed control */
+  .fx-r6::before {
+    background: linear-gradient(var(--fx-dir, 90deg),
+      rgba(53,224,161,.40), rgba(53,224,161,.10) 40%, rgba(53,224,161,0) 72%);
+    transform-origin: var(--fx-x) center;
+    animation: r6 .6s cubic-bezier(.3,.7,.3,1) forwards;
+  }
+  @keyframes r6 {
+    from { transform: scaleX(0); opacity: 1 }
+    to   { transform: scaleX(1); opacity: 0 }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fx::before { animation-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Relay — six inside-the-box variants</h1>
+  <p class="sub">Button behaviour is unchanged from Option 1: invert to accent, icon becomes a check. What differs is the container glow, which now never paints outside the element — each is drawn on an inset layer with the host's own border radius, so nothing can be clipped by a card edge. Click any button. "Fire all" shows what a burst looks like.</p>
+  <p class="sub" style="color:var(--text-3);font-size:13px">R1 and R6 originate at the control you actually pressed; the rest are geometry-only.</p>
+
+  <div id="opts"></div>
+
+  <div class="verdict">
+    <p style="margin:0 0 10px"><b>My pick: R1.</b></p>
+    <p class="opt-d" style="margin:0">It keeps the causal link that made Option 1 work — the light comes out of the thing you pressed — but now stays inside the card, so the effect reads as the motor lighting up rather than a ring being sliced off. On a table row it degenerates gracefully into a soft directional bloom because the row is short and wide. R4 is the safest, quietest choice if R1 still feels too active in a burst; it is the only one with no movement at all. R5 is the most "instrument", but it fires the same regardless of which of the four buttons you pressed, which throws away information.</p>
+  </div>
+</div>
+
+<script type="module">
+const OPTIONS = [
+  { n: 'R1', cls: 'fx-r1', t: 'Ripple from the pressed control', d: 'A soft accent circle grows out of the exact button you clicked and dissolves before it reaches the far corner. Contained by the element, so nothing is cut off. Keeps the cause-and-effect of the original.' },
+  { n: 'R2', cls: 'fx-r2', t: 'Bloom from the centre', d: 'The same expanding circle, but always originating at the middle of the card or row. Calmer and more symmetrical; loses the link to which control you pressed.' },
+  { n: 'R3', cls: 'fx-r3', t: 'Collapse inward', d: 'Light appears as a bright rim hugging the inside edge, then spreads inward and dissolves toward the middle. Feels like the element absorbing the acknowledgement.' },
+  { n: 'R4', cls: 'fx-r4', t: 'Inner rim pulse', d: 'A crisp accent line just inside the boundary brightens and fades, with a faint inward haze. No travel whatsoever — the quietest option, and the one that survives rapid repeats best.' },
+  { n: 'R5', cls: 'fx-r5', t: 'Scanline', d: 'A single soft band crosses the element from top to bottom and leaves. The most instrument-panel of the set; identical for every command.' },
+  { n: 'R6', cls: 'fx-r6', t: 'Directional wipe', d: 'Accent sweeps horizontally away from the button you pressed and off the far side. Directional and quick; strongest on wide table rows, less legible on a tall card.' },
+  { n: 'R7', cls: 'fx-r7', t: 'Expand outward — R3 reversed', d: 'R3 played backwards. The glow starts deep inside the element and retreats to the rim, so the green travels outward and leaves at the edge.' },
+  { n: 'R8', cls: 'fx-r8', t: 'Expand outward, sharpening', d: 'The same outward direction, but the rim tightens and brightens as it travels instead of thinning out. The bright part is what moves, which reads as light escaping rather than a haze fading.' },
+];
+
+const ICONS = {
+  identify: 'M12 2a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2zM9 21h6',
+  alive: 'M3 12a9 9 0 1 0 3-6.7M3 4v5h5',
+  alias: 'M20.6 13.4 12 22l-9-9V3h10zM7.5 7.5h.01',
+  reset: 'M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0',
+  check: 'M4 12.5 9 17.5 20 6.5',
+};
+const svg = (d) => `<svg viewBox="0 0 24 24" class="ico" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+const btn = (n) => `<button class="icon-btn" data-cmd="${n}"><span class="base">${svg(ICONS[n])}</span><span class="chk">${svg(ICONS.check)}</span></button>`;
+
+const card = () => `
+  <div class="card fx" data-el="card">
+    <div class="card-head">
+      <div class="model-badge">M17</div>
+      <div class="card-titles">
+        <div class="card-alias">Alias 87 “W”</div>
+        <div class="card-uid">0129D5E093037E68</div>
+      </div>
+    </div>
+    <div class="facts">
+      <div class="fact"><div class="fact-k">Hardware</div><div class="fact-v">v1.5.0</div></div>
+      <div class="fact"><div class="fact-k">Firmware</div><div class="fact-v">0.15.9.0</div></div>
+    </div>
+    <div class="chips"><span class="tag tag-ok">healthy</span></div>
+    <div class="card-actions" style="gap:6px">${btn('identify')}${btn('alive')}${btn('alias')}${btn('reset')}</div>
+  </div>`;
+
+const rows = () => `
+  <div class="rowdemo"><table><tbody>
+    ${[['87','1276'],['88','1255'],['89','1289']].map(([a,s]) => `
+      <tr class="fx" data-el="row">
+        <td>${a}</td><td>M17</td><td>${s}</td><td>0.15.9.0</td><td>24.2 V</td>
+        <td><div class="td-actions">${btn('identify')}${btn('alive')}${btn('alias')}${btn('reset')}</div></td>
+      </tr>`).join('')}
+  </tbody></table></div>`;
+
+const host = document.getElementById('opts');
+for (const o of OPTIONS) {
+  const sec = document.createElement('div');
+  sec.className = 'opt';
+  sec.dataset.cls = o.cls;
+  sec.innerHTML = `
+    <div class="opt-head"><span class="opt-n">${o.n}</span><span class="opt-t">${o.t}</span></div>
+    <p class="opt-d">${o.d}</p>
+    <div class="demo"><div>${card()}</div>${rows()}</div>
+    <div class="fire"><button class="btn btn-ghost btn-sm" data-fireall>Fire all in this variant</button></div>`;
+  host.appendChild(sec);
+}
+
+const ALL = OPTIONS.map((o) => o.cls);
+
+function play(cls, button) {
+  const el = button.closest('[data-el]');
+
+  // Button acknowledgement is identical in every variant.
+  button.classList.add('on');
+  setTimeout(() => button.classList.remove('on'), 620);
+
+  // Anchor the origin on the pressed control, in the host's own coordinates.
+  const hb = el.getBoundingClientRect();
+  const bb = button.getBoundingClientRect();
+  const x = ((bb.left + bb.width / 2 - hb.left) / hb.width) * 100;
+  const y = ((bb.top + bb.height / 2 - hb.top) / hb.height) * 100;
+  el.style.setProperty('--fx-x', `${x.toFixed(1)}%`);
+  el.style.setProperty('--fx-y', `${y.toFixed(1)}%`);
+  el.style.setProperty('--fx-dir', x > 50 ? '270deg' : '90deg');
+
+  ALL.forEach((c) => el.classList.remove(c));
+  void el.offsetWidth;              // restart the animation
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), 760);
+}
+
+host.addEventListener('click', (e) => {
+  const sec = e.target.closest('[data-cls]');
+  if (!sec) return;
+  const cls = sec.dataset.cls;
+  const b = e.target.closest('.icon-btn');
+  if (b) return play(cls, b);
+  if (e.target.closest('[data-fireall]')) {
+    [...sec.querySelectorAll('.icon-btn')].forEach((x, i) => setTimeout(() => play(cls, x), i * 100));
+  }
+});
+</script>
+</body>
+</html>

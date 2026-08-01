@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gearotons · Motor Maintenance</title>
+<meta name="description" content="Detect, inspect, alias, test and update Gearotons servomotors directly from Chrome.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img class="logo" src="assets/gearotons_logo_dark.svg" alt="Gearotons" width="294" height="79">
+    <span class="brand-rule" aria-hidden="true"></span>
+    <div class="brand-name">Motor Maintenance</div>
+  </div>
+
+  <div class="topbar-right">
+    <div class="pill pill-quiet" id="fwIndexPill" title="Firmware releases pulled from the GitHub repository">
+      <span class="dot dot-idle"></span><span id="fwIndexText">Loading firmware index…</span>
+    </div>
+    <div class="pill" id="portPill" hidden>
+      <span class="dot dot-live"></span><span id="portText">Connected</span>
+    </div>
+    <button class="btn btn-ghost" id="disconnectBtn" hidden>Disconnect</button>
+  </div>
+</header>
+
+<!-- ─────────────────────────────── welcome ─────────────────────────────── -->
+<main id="welcome" class="welcome">
+  <div class="welcome-inner">
+    <h1>Connect your motors.<br><span class="accent">Everything else is one click.</span></h1>
+    <p class="lede">
+      Plug in your RS485 adapter and this page will find every motor on the bus, read its
+      firmware, and update all of them from the latest official release — without installing anything.
+    </p>
+    <button class="btn btn-primary btn-lg" id="connectBtn">
+      <svg viewBox="0 0 24 24" class="ico"><path d="M9 2v6M15 2v6M7 8h10v5a5 5 0 0 1-10 0z"/><path d="M12 18v4"/></svg>
+      Connect to serial port
+    </button>
+    <p class="hint" id="connectHint">Chrome, Edge or Opera on desktop. Your browser talks to the motors directly — nothing is uploaded.</p>
+    <div id="connectError" class="banner banner-err welcome-error" hidden></div>
+    <p class="hint"><button class="linkbtn" id="demoBtn">or explore with three simulated motors →</button></p>
+
+    <ul class="feature-row">
+      <li><b>Detect</b><span>Every motor on the bus, by unique ID</span></li>
+      <li><b>Inspect</b><span>Model, hardware, firmware, health</span></li>
+      <li><b>Alias</b><span>Conflict-free addresses, assigned for you</span></li>
+      <li><b>Update</b><span>Latest firmware, straight from the repo</span></li>
+    </ul>
+  </div>
+</main>
+
+<!-- ──────────────────────────────── console ────────────────────────────── -->
+<main id="workspace" class="workspace" hidden>
+
+  <section class="actionbar">
+    <div class="actionbar-left">
+      <button class="btn btn-primary" id="scanBtn">
+        <svg viewBox="0 0 24 24" class="ico"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+        Scan bus
+      </button>
+      <button class="btn" id="fixAliasBtn">Reassign aliases</button>
+      <button class="btn" id="rescanInfoBtn" title="Read fresh values from every motor">
+        <svg viewBox="0 0 24 24" class="ico"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+        Refresh values
+      </button>
+    </div>
+    <div class="actionbar-right">
+      <div class="segmented" id="viewToggle" role="group" aria-label="View mode">
+        <button data-view="cards" class="seg" aria-pressed="true" title="Card view">
+          <svg viewBox="0 0 24 24" class="ico"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+          Cards
+        </button>
+        <button data-view="table" class="seg" aria-pressed="false" title="Table view">
+          <svg viewBox="0 0 24 24" class="ico"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+          Table
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section id="summary" class="summary" hidden></section>
+  <section id="broadcast" class="bcast fx" hidden></section>
+
+  <section id="progress" class="progress" hidden>
+    <div class="progress-head"><span id="progressLabel"></span><span id="progressCount" class="mono"></span></div>
+    <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+  </section>
+
+  <section id="banner" class="banner" hidden></section>
+
+  <section id="grid" class="grid"></section>
+  <section id="tableWrap" class="table-wrap" hidden></section>
+
+  <section id="emptyState" class="empty" hidden>
+    <div class="empty-art">⟳</div>
+    <h2>No motors found on this adapter</h2>
+    <p id="emptyHint">Check that the bus is powered and the adapter is wired A↔A / B↔B, then scan again.</p>
+    <div class="empty-actions">
+      <button class="btn btn-primary" id="scanBtn2">Scan again</button>
+      <button class="btn" id="switchPortBtn" hidden>Try a different adapter</button>
+    </div>
+  </section>
+</main>
+
+<!-- ──────────────────────────────── console ────────────────────────────── -->
+<aside class="console" id="console" data-open="false">
+  <button class="console-toggle" id="consoleToggle">
+    <span class="console-title">Bus console</span>
+    <span class="console-meta mono" id="consoleMeta">idle</span>
+    <svg viewBox="0 0 24 24" class="ico chev"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+  <div class="console-body">
+    <div class="console-filters">
+      <label class="check"><input type="checkbox" id="showRaw"><span>Show raw bytes</span></label>
+      <button class="btn btn-ghost btn-sm" id="clearLog">Clear</button>
+    </div>
+    <div class="console-lines mono" id="consoleLines"></div>
+  </div>
+</aside>
+
+<!-- ──────────────────────────────── dialogs ────────────────────────────── -->
+<dialog id="aliasDialog" class="dlg">
+  <form method="dialog">
+    <h3>Set alias</h3>
+    <p class="dlg-sub" id="aliasDialogSub"></p>
+    <input type="number" id="aliasInput" min="1" max="251" class="input mono">
+    <p class="hint">1–251. Use 255 to clear the alias (the motor stays reachable by unique ID).</p>
+    <menu>
+      <button class="btn btn-ghost" value="cancel">Cancel</button>
+      <button class="btn btn-primary" value="ok" id="aliasOk">Set alias</button>
+    </menu>
+  </form>
+</dialog>
+
+<dialog id="confirmDialog" class="dlg">
+  <form method="dialog">
+    <h3 id="confirmTitle"></h3>
+    <div class="dlg-sub" id="confirmBody"></div>
+    <menu>
+      <button class="btn btn-ghost" value="cancel">Cancel</button>
+      <button class="btn btn-accent" value="ok" id="confirmOk">Continue</button>
+    </menu>
+  </form>
+</dialog>
+
+<dialog id="aliasSchemeDialog" class="dlg dlg-wide">
+  <form method="dialog">
+    <h3>Reassign aliases</h3>
+    <p class="dlg-sub" id="schemeSub"></p>
+    <div class="fw-list" id="schemeList"></div>
+    <label class="fw-group" id="schemeStartWrap">
+      <span>Start from</span>
+      <input type="text" id="schemeStart" class="input mono" autocomplete="off">
+    </label>
+    <p class="hint" id="schemePreview"></p>
+    <menu>
+      <button class="btn btn-ghost" value="cancel">Cancel</button>
+      <button class="btn btn-primary" value="ok" id="schemeOk">Review plan</button>
+    </menu>
+  </form>
+</dialog>
+
+<dialog id="fwDialog" class="dlg dlg-wide">
+  <form method="dialog">
+    <h3 id="fwTitle">Choose firmware</h3>
+    <p class="dlg-sub" id="fwSub"></p>
+    <label class="fw-group" id="fwGroupWrap" hidden>
+      <span>Motor type</span>
+      <select id="fwGroup" class="input"></select>
+    </label>
+    <div class="fw-list" id="fwList"></div>
+    <p class="hint" id="fwHint"></p>
+    <menu>
+      <button class="btn btn-ghost" value="cancel">Cancel</button>
+      <button class="btn btn-primary" value="ok" id="fwOk">Flash</button>
+    </menu>
+  </form>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

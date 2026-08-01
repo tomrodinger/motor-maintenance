@@ -1,0 +1,10 @@
+# Sparse checkout of tomrodinger/servomotor plus a downloaded copy of
+# tutorial.gearotons.com — both are upstream sources, not part of this project.
+research/
+
+# Generated at run time
+tools/hw_watch_log.txt
+tools/hw_watch_capture.txt
+tools/fw_ref.json
+tools/detected_before_power_cycle.txt
+.DS_Store
